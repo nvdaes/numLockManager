@@ -21,9 +21,7 @@ from api import processPendingEvents
 addonHandler.initTranslation()
 
 ### Constants
-
-ADDON_NAME = addonHandler.getCodeAddon().name
-ADDON_SUMMARY = addonHandler.getCodeAddon().manifest["summary"]
+ADDON_NAME = str(addonHandler.getCodeAddon().name)
 
 numLockActivationDefault = "0" if config.conf['keyboard']['keyboardLayout'] == "desktop" else "2"
 
@@ -32,7 +30,7 @@ confspec = {
 	"changeVolumeLevel": "integer(default=0)",
 	"volumeLevel": "integer(default=50)"
 }
-config.conf.spec[ADDON_NAME"] = confspec
+config.conf.spec[ADDON_NAME] = confspec
 
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
@@ -56,7 +54,6 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				if muteState:
 					self.speakers.SetMute(0, None)
 				time.sleep(0.05)
-				muteState = self.speakers.GetMute()
 				log.info("speakers after correction: {fixedLevel} Percent, {curMuteState}".format(
 					fixedLevel=int(self.speakers.GetMasterVolumeLevelScalar()*100),
 					curMuteState=("Unmuted","Muted")[muteState]))
@@ -74,7 +71,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def __init__(self):
 		self.speakers=getVolumeObject()
 		super(globalPluginHandler.GlobalPlugin, self).__init__()
-		volLevel = config.conf["ADDON_NAME"]["volumeLevel"]
+		volLevel = config.conf[ADDON_NAME]["volumeLevel"]
 		volMode = config.conf[ADDON_NAME]["changeVolumeLevel"]
 		if volMode < 2:
 			wx.CallAfter(self.changeVolumeLevel, volLevel, volMode)
@@ -88,8 +85,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		# Gui
 		self.prefsMenu = gui.mainFrame.sysTrayIcon.preferencesMenu
 		self.settingsItem = self.prefsMenu.Append(wx.ID_ANY,
-			# Translators: name of the option in the menu.
-			_("&Shared Computer Settings..."))
+			# Translators: Name of an option in the menu.
+			_("&Shared Computer settings..."))
 		gui.mainFrame.sysTrayIcon.Bind(wx.EVT_MENU, self.onSettings, self.settingsItem)
 
 	def terminate(self):
@@ -111,12 +108,12 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		wx.CallAfter(self.onSettings, None)
 	script_settings.category = SCRCAT_CONFIG
 	# Translators: message presented in input mode.
-	script_settings.__doc__ = _("Shows the %s settings dialog." % ADDON_SUMMARY)
+	script_settings.__doc__ = _("Shows the Shared Computer settings dialog.")
 
 class AddonSettingsDialog(SettingsDialog):
 
-# Translators: Title of a dialog.
-	title = _("%s Settings" % ADDON_SUMMARY)
+	# Translators: Title of a dialog.
+	title = _("Shared Computer settings")
 
 	def makeSettings(self, settingsSizer):
 		sHelper = guiHelper.BoxSizerHelper(self, sizer=settingsSizer)
@@ -160,17 +157,15 @@ class AddonSettingsDialog(SettingsDialog):
 			initial=config.conf[ADDON_NAME]["volumeLevel"])
 
 	def onChoice(self, evt):
-		if self.volumeList.Selection == 0:
-			self.volumeRadioBox.Enabled = True
+		val=evt.GetSelection()
+		if val == 0:
 			self.volumeLevel.SetRange(0, 100)
 			self.volumeLevel.Enabled=True
-		elif self.volumeList.Selection == 1:
-			self.volumeRadioBox.Enabled = True
+		elif val==1:
 			self.volumeLevel.SetRange(20, 100)
 			self.volumeLevel.Enabled=True
 		else:
-			self.volumeRadioBox.Enabled = False
-			self.volumeLevel.Enabled = False
+			self.volumeLevel.Enabled=False
 
 	def onVolumeRadioBox(self, evt):
 		if self.volumeRadioBox.Selection == 1:
@@ -178,19 +173,20 @@ class AddonSettingsDialog(SettingsDialog):
 				speakers = getVolumeObject()
 				self.volumeLevel.Value = int(speakers.GetMasterVolumeLevelScalar()*100)
 			except:
-				self.volumeLevel.Value = config.conf[ADDON_NAME"]["volumeLevel"]
+				self.volumeLevel.Value = 1
+				#self.volumeLevel.Value = config.conf[ADDON_NAME]["volumeLevel"]
 		else:
 			self.volumeLevel.Value = config.conf[ADDON_NAME]["volumeLevel"]
 
 	def postInit(self):
 		self.activateList.SetFocus()
 
-	def onOk(self,evt):
+	def onOk(self, evt):
 		super(AddonSettingsDialog, self).onOk(evt)
 		config.conf[ADDON_NAME]["numLockActivation"] = self.activateList.Selection
-		# write only to the normal configuration
-		config.conf.profiles[0][ADDON_NAME]["changeVolumeLevel"] = self.volumeList.Selection
-		config.conf.profiles[0][ADDON_NAME]["volumeLevel"] = self.volumeLevel.Value
+		# We cannot write only to the normal configuration, since this produces a key error
+		config.conf[ADDON_NAME]["changeVolumeLevel"] = self.volumeList.Selection
+		config.conf[ADDON_NAME]["volumeLevel"] = self.volumeLevel.Value
 
 ### Audio Stuff
 
